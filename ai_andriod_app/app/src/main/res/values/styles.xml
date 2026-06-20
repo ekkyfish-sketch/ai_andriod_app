@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Custom theme to hide the system splash screen's app icon and show only the background color -->
+    <style name="Theme.App.Starting" parent="@android:style/Theme.Material.NoActionBar">
+        <!-- Support for Android 12+ Splash Screen API -->
+        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+        <item name="android:windowSplashScreenBackground">#08120B</item>
+        <!-- Background color fallback for pre-Android 12 -->
+        <item name="android:windowBackground">#08120B</item>
+    </style>
+</resources>

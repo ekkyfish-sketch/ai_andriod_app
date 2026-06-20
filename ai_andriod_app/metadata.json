@@ -1,0 +1,6 @@
+{
+  "name": "EkkyFish",
+  "description": "An elegant fish sales application with real-time inventory tracking, checkout payment simulator, and live admin dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
