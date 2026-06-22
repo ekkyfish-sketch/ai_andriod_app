@@ -3,6 +3,7 @@ package com.example
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -42,6 +43,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.ui.SplashLoadingScreen
 import com.example.ui.theme.MyApplicationTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,13 +82,21 @@ class MainActivity : ComponentActivity() {
                 val viewModel: FishViewModel = viewModel()
                 val currentScreen by viewModel.currentScreen.collectAsState()
                 val loggedInUser by viewModel.loggedInUser.collectAsState()
+                val customerAccount by viewModel.loggedInCustomerAccount.collectAsState()
                 val cart by viewModel.cart.collectAsState()
                 val isAdmin = loggedInUser?.role == UserRole.ADMIN
                 var showSplash by remember { mutableStateOf(true) }
+                var temporarilyDismissedProfilePrompt by remember { mutableStateOf(false) }
 
                 if (showSplash) {
                     SplashLoadingScreen(onFinished = { showSplash = false })
                 } else {
+                    if (currentScreen != NavigationScreen.STORE) {
+                        BackHandler {
+                            viewModel.navigateTo(NavigationScreen.STORE)
+                        }
+                    }
+
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         bottomBar = {
@@ -144,6 +167,86 @@ class MainActivity : ComponentActivity() {
                         val modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
+
+                        // Profile-completion prompter for logged in customers with blank phone / address
+                        if (loggedInUser != null && loggedInUser?.role == UserRole.CUSTOMER && !temporarilyDismissedProfilePrompt) {
+                            val account = customerAccount
+                            if (account != null && (account.phone.isBlank() || account.address.isBlank())) {
+                                var tempName by remember(account) { mutableStateOf(account.name) }
+                                var tempPhone by remember(account) { mutableStateOf(account.phone) }
+                                var tempAddress by remember(account) { mutableStateOf(account.address) }
+                                var phoneError by remember { mutableStateOf(false) }
+
+                                AlertDialog(
+                                    onDismissRequest = { },
+                                    title = { Text("Complete Your Profile") },
+                                    text = {
+                                        Column(
+                                            modifier = Modifier.verticalScroll(rememberScrollState()),
+                                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Text(
+                                                text = "Please set your phone number and delivery address so we can route and process your fresh seafood orders seamlessly.",
+                                                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            OutlinedTextField(
+                                                value = tempName,
+                                                onValueChange = { tempName = it },
+                                                label = { Text("Full Name") },
+                                                modifier = Modifier.fillMaxWidth().testTag("add_profile_name"),
+                                                singleLine = true
+                                            )
+                                            OutlinedTextField(
+                                                value = tempPhone,
+                                                onValueChange = { 
+                                                    tempPhone = it 
+                                                    phoneError = it.isNotBlank() && it.length != 10
+                                                },
+                                                label = { Text("WhatsApp Phone (10 digits)") },
+                                                modifier = Modifier.fillMaxWidth().testTag("add_profile_phone"),
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                                singleLine = true,
+                                                isError = phoneError,
+                                                supportingText = {
+                                                    if (phoneError) {
+                                                        Text("Enter a valid 10-digit mobile number")
+                                                    }
+                                                }
+                                            )
+                                            OutlinedTextField(
+                                                value = tempAddress,
+                                                onValueChange = { tempAddress = it },
+                                                label = { Text("Delivery Address with Pin Code") },
+                                                modifier = Modifier.fillMaxWidth().testTag("add_profile_address"),
+                                                minLines = 2,
+                                                maxLines = 4
+                                            )
+                                        }
+                                    },
+                                    confirmButton = {
+                                        Button(
+                                            onClick = {
+                                                if (tempPhone.length == 10 && tempName.isNotBlank() && tempAddress.isNotBlank()) {
+                                                    viewModel.updateCustomerProfile(tempName.trim(), tempPhone.trim(), tempAddress.trim())
+                                                }
+                                            },
+                                            modifier = Modifier.testTag("save_profile_login_btn"),
+                                            enabled = tempPhone.length == 10 && tempName.isNotBlank() && tempAddress.isNotBlank()
+                                        ) {
+                                            Text("Save & Get Started")
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(
+                                            onClick = { temporarilyDismissedProfilePrompt = true },
+                                            modifier = Modifier.testTag("skip_profile_btn")
+                                        ) {
+                                            Text("Later")
+                                        }
+                                    }
+                                )
+                            }
+                        }
 
                         when (currentScreen) {
                             NavigationScreen.STORE -> {

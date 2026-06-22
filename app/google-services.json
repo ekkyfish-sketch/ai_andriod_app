@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "655997254136",
+    "project_id": "ekky-fish-db1",
+    "storage_bucket": "ekky-fish-db1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:655997254136:android:713e1c5dd4e08bde20be0d",
+        "android_client_info": {
+          "package_name": "com.aistudio.ekkyfish.pkzpx"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzMjSXNRt8-zwkNgJ9TiM-NOo8tiGGtDs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

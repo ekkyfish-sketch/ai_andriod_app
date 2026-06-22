@@ -32,12 +32,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.graphics.Bitmap
 import java.io.File
 import java.io.FileOutputStream
 import android.net.Uri
+import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
@@ -45,6 +47,7 @@ import android.Manifest
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import coil.compose.AsyncImage
 import androidx.compose.foundation.Image
@@ -81,6 +84,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.ui.text.input.VisualTransformation
@@ -607,39 +611,7 @@ fun StorefrontScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Quick floating cart helper (FOR ALL USERS)
-                val totalInCart = cart.size
-                if (totalInCart > 0) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                            .clickable { viewModel.navigateTo(NavigationScreen.CART) }
-                            .testTag("nav_quick_cart_btn"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ShoppingCart,
-                            contentDescription = "Cart",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .offset(x = 2.dp, y = (-2).dp)
-                                .background(CoralAlert, CircleShape)
-                                .padding(horizontal = 4.dp, vertical = 1.dp)
-                        ) {
-                            Text(
-                                text = "$totalInCart",
-                                color = Color.White,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
+
 
                 if (loggedInUser == null) {
                     Button(
@@ -1625,7 +1597,7 @@ fun CartScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Browse Seafood Selection", fontWeight = FontWeight.Bold)
+                    Text("Browse Seafood", fontWeight = FontWeight.Bold)
                 }
             }
         } else if (transactionState is ViewState.Success) {
@@ -1782,10 +1754,12 @@ fun CheckoutPortal(
     var customerPhone by remember(customerAccount) { mutableStateOf(customerAccount?.phone ?: "") }
     // No popup showing required in Checkout portal anymore
     var shippingAddress by remember(customerAccount) { mutableStateOf(customerAccount?.address ?: "") }
-    var pinCode by remember(customerAccount) {
+    val storedUserPincode by viewModel.userSessionPincode.collectAsState()
+    var pinCode by remember(customerAccount, storedUserPincode) {
         val addr = customerAccount?.address.orEmpty()
         val match = Regex("\\b\\d{6}\\b").find(addr)
-        mutableStateOf(match?.value ?: "")
+        val initialVal = if (storedUserPincode.isNotBlank()) storedUserPincode else (match?.value ?: "")
+        mutableStateOf(initialVal)
     }
 
     // UPI/COD selection state
@@ -1847,7 +1821,7 @@ fun CheckoutPortal(
 
             // Selectable Payment Channel Cards
             Text(
-                text = "Select Payment Channel *",
+                text = "*Select Payment Channel",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -1961,7 +1935,7 @@ fun CheckoutPortal(
                 OutlinedTextField(
                     value = upiId,
                     onValueChange = { upiId = it },
-                    label = { Text("Your UPI Address *") },
+                    label = { Text("*Your UPI Address") },
                     placeholder = { Text("e.g. seafood@okhdfcbank") },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1972,13 +1946,43 @@ fun CheckoutPortal(
                         focusedBorderColor = MaterialTheme.colorScheme.primary
                     )
                 )
+                Spacer(modifier = Modifier.height(6.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val extensions = listOf("@okhdfcbank", "@okaxis", "@okicici", "@oksbi", "@paytm", "@ybl")
+                    items(extensions) { ext ->
+                        val isSelected = upiId.endsWith(ext)
+                        Surface(
+                            onClick = {
+                                val clean = if (upiId.contains("@")) {
+                                    upiId.substringBefore("@")
+                                } else {
+                                    upiId
+                                }
+                                upiId = "$clean$ext"
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                            border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        ) {
+                            Text(
+                                text = ext,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Delivery coordinates block
             Text(
-                text = "Recipient & Shipping Contact Details *",
+                text = "*Recipient & Shipping Contact Details",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -1988,7 +1992,7 @@ fun CheckoutPortal(
             OutlinedTextField(
                 value = customerName,
                 onValueChange = { customerName = it },
-                label = { Text("Delivery Full Name *") },
+                label = { Text("*Delivery Full Name") },
                 placeholder = { Text("e.g. Admiral John Doe") },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2012,8 +2016,8 @@ fun CheckoutPortal(
                     }
                     customerPhone = cleaned
                 },
-                label = { Text("Contact Phone Number *") },
-                placeholder = { Text("e.g. 9884958545") },
+                label = { Text("*Mobile Number") },
+                placeholder = { Text("e.g. 9876543210") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("checkout_guest_phone"),
@@ -2025,7 +2029,7 @@ fun CheckoutPortal(
                     if (isPhoneError) {
                         Text("Strictly enter a valid 10 digit number", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
                     } else {
-                        Text("Enter exactly 10 digits (system handles +91/91 behind screen)", fontSize = 10.sp)
+                        Text("Enter exactly 10 digits", fontSize = 10.sp)
                     }
                 }
             )
@@ -2035,8 +2039,8 @@ fun CheckoutPortal(
             OutlinedTextField(
                 value = shippingAddress,
                 onValueChange = { shippingAddress = it },
-                label = { Text("Shipping Street Address *") },
-                placeholder = { Text("e.g. No. 12, Anna Salai, Chennai, Tamil Nadu") },
+                label = { Text("*Shipping Address") },
+                placeholder = { Text("e.g. No. 12, Anna Salai, Chennai.") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("checkout_guest_address"),
@@ -2048,8 +2052,13 @@ fun CheckoutPortal(
 
             OutlinedTextField(
                 value = pinCode,
-                onValueChange = { if (it.length <= 6 && it.all { char -> char.isDigit() }) pinCode = it },
-                label = { Text("Chennai PIN Code (6 digits) *") },
+                onValueChange = { 
+                    if (it.length <= 6 && it.all { char -> char.isDigit() }) {
+                        pinCode = it
+                        viewModel.setUserSessionPincode(it)
+                    }
+                },
+                label = { Text("*Enter PIN Code") },
                 placeholder = { Text("e.g. 600001") },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2061,7 +2070,7 @@ fun CheckoutPortal(
             )
             if (pinCode.isNotEmpty() && !isPincodeValid) {
                 Text(
-                    text = if (adminPincodeConfig.isNotBlank()) "Delivery is restricted to allowed PINs: $adminPincodeConfig" else "Please enter a valid 6-digit PIN code",
+                    text = if (adminPincodeConfig.isNotBlank()) "Delivery is restricted to allowed PINs: $adminPincodeConfig" else "Please enter a valid PIN code",
                     color = CoralAlert,
                     fontSize = 11.sp,
                     modifier = Modifier.padding(top = 4.dp, start = 4.dp)
@@ -2074,7 +2083,7 @@ fun CheckoutPortal(
             OutlinedTextField(
                 value = customerEmail,
                 onValueChange = { customerEmail = it },
-                label = { Text(if (user == null) "Email Address * (For shipment invoice updates)" else "Correspondence Email") },
+                label = { Text(if (user == null) "*Email Address" else "Email ID") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("checkout_email_input"),
@@ -2168,7 +2177,7 @@ fun CheckoutPortal(
                 val buttonText = if (selectedMethod == "UPI") {
                     "Pay ₹${String.format(Locale.US, "%.2f", subtotal + 50.0)} via UPI"
                 } else {
-                    "Place On Delivery Order (₹${String.format(Locale.US, "%.2f", subtotal + 50.0)})"
+                    "Check Out (₹${String.format(Locale.US, "%.2f", subtotal + 50.0)})"
                 }
                 Button(
                     onClick = { onSubmit(customerEmail, customerName, customerPhone, "$shippingAddress, Chennai (PIN: $pinCode)", selectedMethod, upiId) },
@@ -2187,13 +2196,8 @@ fun CheckoutPortal(
                 }
                 if (!isFormValid) {
                     Spacer(modifier = Modifier.height(6.dp))
-                    val helpText = if (selectedMethod == "UPI") {
-                        "Please fill all fields, UPI address & a 6-digit Chennai PIN (starting with 600)."
-                    } else {
-                        "Please fill all fields & a 6-digit Chennai PIN (starting with 600)."
-                    }
                     Text(
-                        text = helpText,
+                        text = "*Please fill all the required fields",
                         fontSize = 11.sp,
                         color = CoralAlert,
                         textAlign = TextAlign.Center,
@@ -2313,6 +2317,102 @@ fun SuccessReceiptView(
                             lineHeight = 16.sp,
                             modifier = Modifier.fillMaxWidth()
                         )
+                    }
+                }
+            }
+
+            val emailStatus by viewModel.emailStatus.collectAsState()
+            val context = LocalContext.current
+            
+            val customerEmail = remember(whatsappMsg) {
+                if (whatsappMsg != null) {
+                    val match = Regex("(?i)Email:\\s*(\\S+)").find(whatsappMsg)
+                    match?.groupValues?.get(1).orEmpty()
+                } else ""
+            }.ifBlank { viewModel.loggedInUser.value?.email.orEmpty() }.ifBlank { "customer@ekkyfish.com" }
+
+            val orderRef = remember(whatsappMsg) {
+                if (whatsappMsg != null) {
+                    val match = Regex("(?i)Reference:\\s*(\\S+)").find(whatsappMsg)
+                    match?.groupValues?.get(1).orEmpty()
+                } else ""
+            }.ifBlank { "TXN-STORE" }
+
+            val autoEmailTriggered = remember { mutableStateOf(false) }
+            // Auto email intent popup removed to allow the email to be processed of SMTP background server behind the screen without interruption.
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = "Email Integrated Service Icon",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Email Service Integration ✉️",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    val dispEmailStatus = emailStatus ?: "Activating email dispatch daemon..."
+                    Text(
+                        text = "Sender: ekkyfish@gmail.com 📤\n" +
+                               "Recipient: $customerEmail 📥\n" +
+                               "Order ID: $orderRef\n\n" +
+                               "SMTP Mail Server Status:\n• $dispEmailStatus",
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Start,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                        lineHeight = 16.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = {
+                            try {
+                                val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("mailto:")
+                                    putExtra(Intent.EXTRA_EMAIL, arrayOf(customerEmail))
+                                    putExtra(Intent.EXTRA_SUBJECT, "EkkyFish Order Confirmation Invoice - $orderRef")
+                                    putExtra(Intent.EXTRA_TEXT, whatsappMsg ?: "Thank you for placing order $orderRef with EkkyFish!")
+                                }
+                                context.startActivity(Intent.createChooser(emailIntent, "Send Invoice Email using..."))
+                            } catch (ex: Exception) {
+                                android.util.Log.e("MailIntent", "No email application found on current emulator environment context", ex)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.fillMaxWidth().height(38.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Email, contentDescription = "Mail Icon", modifier = Modifier.size(14.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Open Mail App / Send Copy", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
                     }
                 }
             }
@@ -2883,757 +2983,6 @@ fun AdminDashboardScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-
-        // WhatsApp notification setting controls inside Admin Console
-        val adminPhone by viewModel.adminPhone.collectAsState()
-        val whatsappNotifyEnabled by viewModel.whatsappNotifyEnabled.collectAsState()
-        val whatsappStatus by viewModel.whatsappStatus.collectAsState()
-        val whatsappTokenOverride by viewModel.whatsappTokenOverride.collectAsState()
-        val whatsappPhoneIdOverride by viewModel.whatsappPhoneIdOverride.collectAsState()
-        val whatsappWabaIdOverride by viewModel.whatsappWabaIdOverride.collectAsState()
-        val whatsappDatasetIdOverride by viewModel.whatsappDatasetIdOverride.collectAsState()
-        val whatsappApiVersion by viewModel.whatsappApiVersion.collectAsState()
-        val whatsappTemplateName by viewModel.whatsappTemplateName.collectAsState()
-        var editPhoneStr by remember(adminPhone) { mutableStateOf(adminPhone) }
-        var isEditingPhone by remember { mutableStateOf(false) }
-        var editTokenStr by remember(whatsappTokenOverride) { mutableStateOf(whatsappTokenOverride) }
-        var editPhoneIdStr by remember(whatsappPhoneIdOverride) { mutableStateOf(whatsappPhoneIdOverride) }
-        var editWabaIdStr by remember(whatsappWabaIdOverride) { mutableStateOf(whatsappWabaIdOverride) }
-        var editDatasetIdStr by remember(whatsappDatasetIdOverride) { mutableStateOf(whatsappDatasetIdOverride) }
-        var editApiVersionStr by remember(whatsappApiVersion) { mutableStateOf(whatsappApiVersion) }
-        var editTemplateNameStr by remember(whatsappTemplateName) { mutableStateOf(whatsappTemplateName) }
-        var showOverridesConfig by remember { mutableStateOf(false) }
-        var testRecipientPhoneStr by remember(adminPhone) { mutableStateOf(adminPhone.ifBlank { "919884958545" }) }
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .shadow(1.dp, RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = "WhatsApp Admin Notifications 📱",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "Configure which phone receives the automated customer checkout orders.",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Admin WhatsApp Number",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                        if (isEditingPhone) {
-                            OutlinedTextField(
-                                value = editPhoneStr,
-                                onValueChange = { input ->
-                                    var cleaned = input.filter { it.isDigit() }
-                                    if (cleaned.startsWith("91") && cleaned.length > 10) {
-                                        cleaned = cleaned.substring(2)
-                                    }
-                                    if (cleaned.length > 10) {
-                                        cleaned = cleaned.take(10)
-                                    }
-                                    editPhoneStr = cleaned
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(54.dp)
-                                    .padding(vertical = 2.dp)
-                                    .testTag("admin_phone_input_field"),
-                                textStyle = MaterialTheme.typography.bodyMedium,
-                                placeholder = { Text("e.g. 9840761653") },
-                                keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.background,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.background
-                                )
-                            )
-                        } else {
-                            Text(
-                                text = if (adminPhone.isBlank()) "Not Set" else "+$adminPhone",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        if (isEditingPhone) {
-                            Button(
-                                onClick = {
-                                    viewModel.updateAdminPhone(editPhoneStr)
-                                    isEditingPhone = false
-                                },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = StockGreen),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                                modifier = Modifier.height(34.dp).testTag("save_admin_phone_btn")
-                            ) {
-                                Text("Save", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Button(
-                                onClick = {
-                                    editPhoneStr = adminPhone
-                                    isEditingPhone = false
-                                },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = CoralAlert),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                                modifier = Modifier.height(34.dp).testTag("cancel_admin_phone_btn")
-                            ) {
-                                Text("Cancel", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        } else {
-                            Button(
-                                onClick = { isEditingPhone = true },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                                modifier = Modifier.height(34.dp).testTag("edit_admin_phone_btn")
-                            ) {
-                                Text("Change Contact", fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)))
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Automated WhatsApp Alerts",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Trigger automated WhatsApp Cloud API notifications to Admin on order placement.",
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                    }
-
-                    androidx.compose.material3.Switch(
-                        checked = whatsappNotifyEnabled,
-                        onCheckedChange = { viewModel.setWhatsappNotifyEnabled(it) },
-                        modifier = Modifier.testTag("admin_whatsapp_switch")
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Advanced credentials accordion
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showOverridesConfig = !showOverridesConfig }
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "🛠️ Advanced Cloud API Credentials (Optional Overrides)",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                    Text(
-                        text = if (showOverridesConfig) "▲" else "▼",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                }
-
-                if (showOverridesConfig) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                text = "If you configured WhatsApp credentials in Meta Developers Console, paste them here. No app rebuild required!",
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-
-                            // Access Token Input
-                            Text(
-                                text = "WhatsApp Access Token (Bearer Key Override)",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OutlinedTextField(
-                                value = editTokenStr,
-                                onValueChange = { editTokenStr = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .testTag("override_token_input"),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                placeholder = { Text("EAA...", fontSize = 11.sp) },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.background,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.background
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            // Phone ID Input
-                            Text(
-                                text = "WhatsApp Phone Number ID Override (15-digit ID)",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OutlinedTextField(
-                                value = editPhoneIdStr,
-                                onValueChange = { editPhoneIdStr = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .testTag("override_phoneid_input"),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                placeholder = { Text("e.g. 102938475610293", fontSize = 11.sp) },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.background,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.background
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            // WABA ID Input
-                            Text(
-                                text = "WhatsApp Business Account ID Override (WABA ID)",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OutlinedTextField(
-                                value = editWabaIdStr,
-                                onValueChange = { editWabaIdStr = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .testTag("override_waba_id_input"),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                placeholder = { Text("e.g. 293847561029348", fontSize = 11.sp) },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.background,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.background
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            // Dataset/Pixel ID Input
-                            Text(
-                                text = "Conversions API Dataset / Pixel ID Override",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OutlinedTextField(
-                                value = editDatasetIdStr,
-                                onValueChange = { editDatasetIdStr = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .testTag("override_dataset_id_input"),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                placeholder = { Text("e.g. 847561029348576", fontSize = 11.sp) },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.background,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.background
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            // API Version Input
-                            Text(
-                                text = "WhatsApp Cloud API Version (e.g. v25.0, v21.0, v19.0)",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OutlinedTextField(
-                                value = editApiVersionStr,
-                                onValueChange = { editApiVersionStr = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .testTag("override_api_version_input"),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                placeholder = { Text("v25.0", fontSize = 11.sp) },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.background,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.background
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            // Template Name Input
-                            Text(
-                                text = "WhatsApp Template Name (Approved Code Template)",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OutlinedTextField(
-                                value = editTemplateNameStr,
-                                onValueChange = { editTemplateNameStr = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .testTag("override_template_name_input"),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                placeholder = { Text("order_confirmed_ekky_fish", fontSize = 11.sp) },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.background,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.background
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Button(
-                                    onClick = {
-                                        viewModel.updateWhatsAppOverrides(editTokenStr, editPhoneIdStr, editWabaIdStr, editDatasetIdStr, editApiVersionStr, editTemplateNameStr)
-                                    },
-                                    enabled = editTokenStr.isNotBlank() || editPhoneIdStr.isNotBlank() || editWabaIdStr.isNotBlank() || editDatasetIdStr.isNotBlank() || editApiVersionStr.isNotBlank() || editTemplateNameStr.isNotBlank(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                    shape = RoundedCornerShape(6.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                    modifier = Modifier.height(32.dp).testTag("save_override_credentials_btn")
-                                ) {
-                                    Text("Apply Override", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                if (whatsappTokenOverride.isNotBlank() || whatsappPhoneIdOverride.isNotBlank() || whatsappWabaIdOverride.isNotBlank() || whatsappDatasetIdOverride.isNotBlank() || whatsappApiVersion != "v25.0" || whatsappTemplateName != "order_confirmed_ekky_fish") {
-                                    Button(
-                                        onClick = {
-                                            viewModel.updateWhatsAppOverrides("", "", "", "", "v25.0", "order_confirmed_ekky_fish")
-                                            editTokenStr = ""
-                                            editPhoneIdStr = ""
-                                            editWabaIdStr = ""
-                                            editDatasetIdStr = ""
-                                            editApiVersionStr = "v25.0"
-                                            editTemplateNameStr = "order_confirmed_ekky_fish"
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = CoralAlert),
-                                        shape = RoundedCornerShape(6.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                        modifier = Modifier.height(32.dp).testTag("clear_override_credentials_btn")
-                                    ) {
-                                        Text("Clear & use Defaults", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-
-                                if (editWabaIdStr.isNotBlank() && editDatasetIdStr.isNotBlank()) {
-                                    Button(
-                                        onClick = {
-                                            viewModel.configureEventActivitySharing(editWabaIdStr, editDatasetIdStr)
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
-                                        shape = RoundedCornerShape(6.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                        modifier = Modifier.height(32.dp).testTag("link_dataset_activity_api_btn")
-                                    ) {
-                                        Text("Link Dataset (API)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)))
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "WhatsApp Cloud API Status",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (viewModel.isWhatsAppCloudApiConfigured) {
-                                    "Active 🟢 (Credentials detected)"
-                                } else {
-                                    "Inactive 🔴 (Configure credentials in AI Studio Secrets)"
-                                },
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = if (viewModel.isWhatsAppCloudApiConfigured) {
-                                    Color(0xFF2E7D32)
-                                } else {
-                                    MaterialTheme.colorScheme.error
-                                }
-                            )
-                        }
-
-                        Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                            Text(
-                                text = "Test Recipient Phone Number (to) 📱",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            OutlinedTextField(
-                                value = testRecipientPhoneStr,
-                                onValueChange = { testRecipientPhoneStr = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(44.dp)
-                                    .testTag("test_recipient_phone_field"),
-                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
-                                placeholder = { Text("e.g. 919884958545", fontSize = 11.sp) },
-                                keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
-                                singleLine = true,
-                                shape = RoundedCornerShape(6.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f),
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Button(
-                                    onClick = {
-                                        viewModel.sendWhatsAppHelloWorldTemplate(testRecipientPhoneStr)
-                                    },
-                                    enabled = testRecipientPhoneStr.isNotBlank(),
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                                    modifier = Modifier.height(30.dp).testTag("send_template_whatsapp_btn")
-                                ) {
-                                    Text("Send Template", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                Button(
-                                    onClick = {
-                                        viewModel.sendWhatsAppNotification(
-                                            testRecipientPhoneStr,
-                                            "📦 *EkkyFish - ORDER RECEIVED SUCCESSFULLY!* 🐟🚀\n" +
-                                            "---------------------------------------------\n" +
-                                            "*Order Reference:* EF-TEST${(100000..999999).random()}\n" +
-                                            "*Status:* Confirmed (Processing for Dispatch)\n\n" +
-                                            "*Delivery Estimate:* Same Day Delivery (Within 3 hours) 🚚💨\n" +
-                                            "*Shipping Address:* 12, Marine Drive, Scheme West, Chennai - 600028\n" +
-                                            "---------------------------------------------\n" +
-                                             "*Items Ordered:*\n" +
-                                             "• Fresh Atlantic Salmon (Premium Cut) - 1 kg x 1\n" +
-                                             "• Wild Caught Tiger Prawns - 500g x 2\n\n" +
-                                             "*Subtotal:* ₹1,450.00\n" +
-                                             "*Delivery Fee:* ₹50.00\n" +
-                                             "*Total Amount Paid:* *₹1,500.00* (via UPI)\n" +
-                                             "---------------------------------------------\n" +
-                                             "Thank you for ordering your fresh catch from EkkyFish! 🌊❄\n" +
-                                             "For support/tracking, contact +91 98407 61653"
-                                        )
-                                    },
-                                    enabled = testRecipientPhoneStr.isNotBlank(),
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                                    modifier = Modifier.height(30.dp).testTag("send_test_whatsapp_btn")
-                                ) {
-                                    Text("Send Text", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "💡 *Why do I get the welcome message?*\n" +
-                                        "• *Send Template*: Facebook Cloud API dictates the template layout. Since 'hello_world' is a static preset on Facebook's servers, its greeting cannot be customized from our Android code.\n" +
-                                        "• *Send Text*: Sends our custom 'Order Received' billing structure directly. (Per Meta policies, free-form text requires the recipient to have messaged your business in the last 24 hours to open a customer session).",
-                                fontSize = 9.sp,
-                                lineHeight = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 4.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // Credential Verification Details & Diagnostics Card
-                    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
-                    var curlCopiedMsg by remember { mutableStateOf("") }
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                text = "Loaded Runtime Configuration",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            )
-                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Active Phone ID:", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(viewModel.activePhoneIdDisplay.toString(), fontSize = 9.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Active Auth Token:", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(viewModel.activeTokenMasked.toString(), fontSize = 9.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Active API Version:", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(whatsappApiVersion, fontSize = 9.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Active Template Name:", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(whatsappTemplateName, fontSize = 9.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Diagnostics:",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-
-                                TextButton(
-                                    onClick = {
-                                        val token = viewModel.getActiveWhatsAppToken()
-                                        val phoneId = viewModel.getActiveWhatsAppPhoneId()
-                                        val cleanToPhone = testRecipientPhoneStr.replace(Regex("[^0-9]"), "")
-                                        var formattedToPhone = cleanToPhone
-                                        if (formattedToPhone.length == 10 && (formattedToPhone.startsWith("6") || formattedToPhone.startsWith("7") || formattedToPhone.startsWith("8") || formattedToPhone.startsWith("9"))) {
-                                            formattedToPhone = "91$formattedToPhone"
-                                        }
-                                        val curl = "curl --request POST \\\n" +
-                                                "  --url https://graph.facebook.com/$whatsappApiVersion/$phoneId/messages \\\n" +
-                                                "  --header \"Authorization: Bearer $token\" \\\n" +
-                                                "  --header \"Content-Type: application/json\" \\\n" +
-                                                "  --data '{\n" +
-                                                "  \"messaging_product\": \"whatsapp\",\n" +
-                                                "  \"to\": \"$formattedToPhone\",\n" +
-                                                "  \"type\": \"template\",\n" +
-                                                "  \"template\": {\n" +
-                                                "    \"name\": \"$whatsappTemplateName\",\n" +
-                                                "    \"language\": {\n" +
-                                                "      \"code\": \"en_US\"\n" +
-                                                "    },\n" +
-                                                "    \"components\": [\n" +
-                                                "      {\n" +
-                                                "        \"type\": \"body\",\n" +
-                                                "        \"parameters\": [\n" +
-                                                "          {\n" +
-                                                "            \"type\": \"text\",\n" +
-                                                "            \"text\": \"John Doe\"\n" +
-                                                "          },\n" +
-                                                "          {\n" +
-                                                "            \"type\": \"text\",\n" +
-                                                "            \"text\": \"EF-TEST987412\"\n" +
-                                                "          }\n" +
-                                                "        ]\n" +
-                                                "      }\n" +
-                                                "    ]\n" +
-                                                "  }\n" +
-                                                "}'"
-                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(curl))
-                                        curlCopiedMsg = "📋 Template curl copied to clipboard!"
-                                    },
-                                    modifier = Modifier.height(24.dp),
-                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                ) {
-                                    Text("Copy Curl (Template)", fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                TextButton(
-                                    onClick = {
-                                        val token = viewModel.getActiveWhatsAppToken()
-                                        val phoneId = viewModel.getActiveWhatsAppPhoneId()
-                                        val cleanToPhone = testRecipientPhoneStr.replace(Regex("[^0-9]"), "")
-                                        var formattedToPhone = cleanToPhone
-                                        if (formattedToPhone.length == 10 && (formattedToPhone.startsWith("6") || formattedToPhone.startsWith("7") || formattedToPhone.startsWith("8") || formattedToPhone.startsWith("9"))) {
-                                            formattedToPhone = "91$formattedToPhone"
-                                        }
-                                        val curl = "curl --request POST \\\n" +
-                                                "  --url https://graph.facebook.com/$whatsappApiVersion/$phoneId/messages \\\n" +
-                                                "  --header \"Authorization: Bearer $token\" \\\n" +
-                                                "  --header \"Content-Type: application/json\" \\\n" +
-                                                "  --data '{\n" +
-                                                "  \"messaging_product\": \"whatsapp\",\n" +
-                                                "  \"to\": \"$formattedToPhone\",\n" +
-                                                "  \"type\": \"text\",\n" +
-                                                "  \"text\": {\n" +
-                                                "    \"body\": \"📦 *EkkyFish - ORDER RECEIVED SUCCESSFULLY!* 🐟🚀\\n---------------------------------------------\\n*Order Reference:* EF-TEST984218\\n*Status:* Confirmed (Processing for Dispatch)\\n\\n*Delivery Estimate:* Same Day Delivery (Within 3 hours) 🚚💨\\n*Shipping Address:* 12, Marine Drive, Scheme West, Chennai - 600028\\n---------------------------------------------\\n*Items Ordered:*\\n• Fresh Atlantic Salmon (Premium Cut) - 1 kg x 1\\n• Wild Caught Tiger Prawns - 500g x 2\\n\\n*Subtotal:* ₹1,450.00\\n*Delivery Fee:* ₹50.00\\n*Total Amount Paid:* *₹1,500.00* (via UPI)\\n---------------------------------------------\\nThank you for ordering your fresh catch from EkkyFish! 🌊❄\\nFor support/tracking, contact +91 98407 61653\"\n" +
-                                                "  }\n" +
-                                                "}'"
-                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(curl))
-                                        curlCopiedMsg = "📋 Text message curl copied!"
-                                    },
-                                    modifier = Modifier.height(24.dp),
-                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                ) {
-                                    Text("Copy Curl (Text Message)", fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-
-                            if (curlCopiedMsg.isNotBlank()) {
-                                Text(
-                                    text = curlCopiedMsg,
-                                    color = Color(0xFF1B5E20),
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-                                androidx.compose.runtime.LaunchedEffect(curlCopiedMsg) {
-                                    kotlinx.coroutines.delay(3500)
-                                    curlCopiedMsg = ""
-                                }
-                            }
-                        }
-                    }
-
-                    whatsappStatus?.let { status ->
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (status.contains("successfully", ignoreCase = true)) {
-                                    Color(0xFFE8F5E9)
-                                } else {
-                                    Color(0xFFFFEBEE)
-                                }
-                            ),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text(
-                                text = "API Output:\n$status",
-                                fontSize = 10.sp,
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                color = if (status.contains("successfully", ignoreCase = true)) {
-                                    Color(0xFF1B5E20)
-                                } else {
-                                    Color(0xFFB71C1C)
-                                },
-                                modifier = Modifier.padding(8.dp)
-                            )
-                        }
-
-                        // Helpful troubleshooting tip widget
-                        val tipText = when {
-                            status.contains("401", ignoreCase = true) || status.contains("Bearer", ignoreCase = true) -> {
-                                "💡 TIP: HTTP 401 indicates your WhatsApp Access Token is invalid or expired. Remember, developer Temporary Access Tokens expire in 24 hours. Copy a fresh one from Meta Developers console, or configure a Permanent System User Token."
-                            }
-                            status.contains("400", ignoreCase = true) && (status.contains("131030") || status.contains("131047") || status.contains("24 hours")) -> {
-                                "💡 TIP: WhatsApp rules prevent sending freeform Text messages unless the receiver has messaged your number first in the past 24 hours. To resolve this:\n1. Send 'Hi' from your personal phone (+$adminPhone) to your Meta Sandboxed WhatsApp Sender number.\n2. Or, click \"Send Template\" above, which sends the pre-approved template and always works!"
-                            }
-                            status.contains("400", ignoreCase = true) && (status.contains("recipient", ignoreCase = true) || status.contains("allowed", ignoreCase = true)) -> {
-                                "💡 TIP: In Meta Sandbox accounts, you can only send messages to verified recipient numbers. Ensure +$adminPhone is listed in your Sandbox 'To' list on the Meta Developer Dashboard."
-                            }
-                            status.contains("404", ignoreCase = true) -> {
-                                "💡 TIP: HTTP 404 means your WhatsApp Phone Number ID is invalid or incorrect. Check the Phone Number ID on Meta's WhatsApp Getting Started dashboard (it's a 15-digit ID, not the phone number itself)."
-                            }
-                            status.contains("successfully", ignoreCase = true) -> {
-                                "✅ Integration Success! Delivery configurations are correct."
-                            }
-                            else -> {
-                                "💡 TIP: Check your WHATSAPP_API_TOKEN, WHATSAPP_PHONE_NUMBER_ID configs, and confirm the recipient phone number is correct."
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = tipText,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (status.contains("successfully", ignoreCase = true)) Color(0xFF2E7D32) else Color(0xFFC62828),
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
 
         val adminPincodeConfig by viewModel.deliveryPincode.collectAsState()
         var editPincodeStr by remember(adminPincodeConfig) { mutableStateOf(adminPincodeConfig) }
@@ -4722,30 +4071,14 @@ fun LoginScreen(
                 )
             )
     ) {
-        // Minimalist circular Back button targeting native feel
-        IconButton(
-            onClick = { viewModel.navigateTo(NavigationScreen.STORE) },
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .statusBarsPadding()
-                .padding(16.dp)
-                .size(40.dp)
-                .shadow(2.dp, CircleShape)
-                .background(MaterialTheme.colorScheme.surface, CircleShape)
-                .testTag("login_back_btn")
-        ) {
-            Icon(
-                imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back to Home",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
                 .align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center

@@ -39,7 +39,7 @@ fun SplashLoadingScreen(
 ) {
     // Launch a delayed trigger to signal completion after the animations complete
     LaunchedEffect(Unit) {
-        delay(3200L) // Beautiful 3.2 seconds load time to enjoy the animation
+        delay(1500L) // Reduced load timing for a faster, snappier launch
         onFinished()
     }
 
@@ -169,42 +169,6 @@ fun SplashLoadingScreen(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
-
-            // Premium animated progress indicator bar
-            Box(
-                modifier = Modifier
-                    .width(140.dp)
-                    .height(4.dp)
-                    .background(Color.White.copy(alpha = 0.15f), CircleShape)
-            ) {
-                val infiniteProgress = rememberInfiniteTransition(label = "Progress")
-                val loaderProgressOffset by infiniteProgress.animateFloat(
-                    initialValue = -50f,
-                    targetValue = 150f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(1400, easing = EaseInOutQuad),
-                        repeatMode = RepeatMode.Restart
-                    ),
-                    label = "ProgressOffset"
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(40.dp)
-                        .offset(x = loaderProgressOffset.dp)
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    OceanPrimary,
-                                    Color(0xFF0EA5E9),
-                                    OceanPrimary
-                                )
-                            ),
-                            CircleShape
-                        )
-                )
-            }
         }
     }
 }
@@ -260,7 +224,7 @@ fun RunningBikeAnimation(
 
     val roadOffset by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = -90f,
+        targetValue = -85f,
         animationSpec = infiniteRepeatable(
             animation = tween(350, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
@@ -351,10 +315,10 @@ fun RunningBikeAnimation(
         var currentDashX = roadOffset
         while (currentDashX < w + dashLength) {
             drawLine(
-                color = Color(0x4594A3B8),
+                color = Color(0xFF38BDF8),
                 start = Offset(currentDashX, dashY),
                 end = Offset(currentDashX + dashLength, dashY),
-                strokeWidth = 3f
+                strokeWidth = 3.5f
             )
             currentDashX += dashLength + dashGap
         }
@@ -368,7 +332,15 @@ fun RunningBikeAnimation(
         val frontWheelX = bikeCenterX + 50f
         val wheelY = roadY - wheelRadius
 
-        // A. Rear Exhaust Muffler Smoke Puff
+        // 1. Dynamic Under-Scooter Shadow
+        val shadowWidth = 145f + (bikeBobbing * 3f)
+        drawOval(
+            color = Color(0x3B0F172A),
+            topLeft = Offset(bikeCenterX - 75f, roadY - 4f),
+            size = androidx.compose.ui.geometry.Size(shadowWidth, 8f)
+        )
+
+        // 2. Rear Exhaust Muffler Smoke Puff
         drawCircle(
             color = Color(0x3594A3B8).copy(alpha = smokeAlpha),
             radius = smokeSize,
@@ -380,126 +352,267 @@ fun RunningBikeAnimation(
             center = Offset(rearWheelX - 48f, wheelY - 12f)
         )
 
-        // B. Wheel Tyres
-        drawCircle(
-            color = Color(0xFF1E293B),
-            radius = wheelRadius,
-            center = Offset(rearWheelX, wheelY),
-            style = Stroke(width = 6.5f)
-        )
-        drawCircle(
-            color = Color(0xFF1E293B),
-            radius = wheelRadius,
-            center = Offset(frontWheelX, wheelY),
-            style = Stroke(width = 6.5f)
-        )
-        // alloy rims
-        drawCircle(
-            color = Color(0xFF64748B),
-            radius = wheelRadius - 3.5f,
-            center = Offset(rearWheelX, wheelY),
-            style = Stroke(width = 2.5f)
-        )
-        drawCircle(
-            color = Color(0xFF64748B),
-            radius = wheelRadius - 3.5f,
-            center = Offset(frontWheelX, wheelY),
-            style = Stroke(width = 2.5f)
-        )
+        // 3. Realistic Dual Wheels (Tyres, Rims, ventilated brake discs, and hubs)
+        listOf(rearWheelX, frontWheelX).forEach { wX ->
+            // Thick Outer Tyre (Charcoal)
+            drawCircle(
+                color = Color(0xFF1E293B),
+                radius = wheelRadius,
+                center = Offset(wX, wheelY),
+                style = Stroke(width = 7.5f)
+            )
+            // Tyre Inner Tread Contour (Deep Black)
+            drawCircle(
+                color = Color(0xFF0F172A),
+                radius = wheelRadius - 2f,
+                center = Offset(wX, wheelY),
+                style = Stroke(width = 2f)
+            )
+            // Steel Alloy Rim Bed (Silver Grey Accent)
+            drawCircle(
+                color = Color(0xFF94A3B8),
+                radius = wheelRadius - 5f,
+                center = Offset(wX, wheelY),
+                style = Stroke(width = 1.5f)
+            )
+            // High-Performance Ventilated Brake Disc/Rotor (Metal Silver)
+            drawCircle(
+                color = Color(0xFFCBD5E1),
+                radius = wheelRadius - 10f,
+                center = Offset(wX, wheelY),
+                style = Stroke(width = 3f)
+            )
+            // Central Axle Metal Hub Wheel Bolt
+            drawCircle(
+                color = Color(0xFF475569),
+                radius = 4f,
+                center = Offset(wX, wheelY)
+            )
+            drawCircle(
+                color = Color(0xFFF1F5F9),
+                radius = 1.5f,
+                center = Offset(wX, wheelY)
+            )
+        }
 
-        // Spinning Spokes
+        // 4. Spinning 5-Spoke Premium Alloy Mag Spokes
         val rad = Math.toRadians(wheelRotation.toDouble())
-        val spokeLength = wheelRadius - 3.5f
-        for (i in 0 until 4) {
-            val angle = rad + (i * Math.PI / 2)
-            val dx = (spokeLength * Math.cos(angle)).toFloat()
-            val dy = (spokeLength * Math.sin(angle)).toFloat()
+        val spokeInnerRad = 5f
+        val spokeOuterRad = wheelRadius - 5.5f
+        for (i in 0 until 5) {
+            val angle = rad + (i * 2 * Math.PI / 5)
+            val cos = Math.cos(angle).toFloat()
+            val sin = Math.sin(angle).toFloat()
 
-            // Rear wheel sport spokes
+            // Rear wheel sporty alloy spokes
             drawLine(
-                color = Color(0xFF94A3B8),
-                start = Offset(rearWheelX, wheelY),
-                end = Offset(rearWheelX + dx, wheelY + dy),
-                strokeWidth = 2.5f
+                color = Color(0xFFF1F5F9),
+                start = Offset(rearWheelX + spokeInnerRad * cos, wheelY + spokeInnerRad * sin),
+                end = Offset(rearWheelX + spokeOuterRad * cos, wheelY + spokeOuterRad * sin),
+                strokeWidth = 2.2f,
+                cap = StrokeCap.Round
             )
-            // Front wheel sport spokes
             drawLine(
-                color = Color(0xFF94A3B8),
-                start = Offset(frontWheelX, wheelY),
-                end = Offset(frontWheelX + dx, wheelY + dy),
-                strokeWidth = 2.5f
+                color = Color(0xFF475569),
+                start = Offset(rearWheelX + spokeInnerRad * cos + 1f, wheelY + spokeInnerRad * sin + 1f),
+                end = Offset(rearWheelX + (spokeOuterRad - 2f) * cos + 1f, wheelY + (spokeOuterRad - 2f) * sin + 1f),
+                strokeWidth = 1f
+            )
+
+            // Front wheel sporty alloy spokes
+            drawLine(
+                color = Color(0xFFF1F5F9),
+                start = Offset(frontWheelX + spokeInnerRad * cos, wheelY + spokeInnerRad * sin),
+                end = Offset(frontWheelX + spokeOuterRad * cos, wheelY + spokeOuterRad * sin),
+                strokeWidth = 2.2f,
+                cap = StrokeCap.Round
+            )
+            drawLine(
+                color = Color(0xFF475569),
+                start = Offset(frontWheelX + spokeInnerRad * cos + 1f, wheelY + spokeInnerRad * sin + 1f),
+                end = Offset(frontWheelX + (spokeOuterRad - 2f) * cos + 1f, wheelY + (spokeOuterRad - 2f) * sin + 1f),
+                strokeWidth = 1f
             )
         }
 
-        // C. Steel Frame Components
-        val framePath = Path().apply {
-            moveTo(rearWheelX, wheelY)
-            lineTo(bikeCenterX - 18f, wheelY - 14f)
-            lineTo(bikeCenterX + 16f, wheelY - 8f)
-            lineTo(frontWheelX, wheelY)
-            lineTo(frontWheelX - 12f, wheelY - 38f)
-            lineTo(bikeCenterX + 12f, wheelY - 26f)
-            lineTo(bikeCenterX - 22f, wheelY - 24f)
-            close()
-        }
-        drawPath(path = framePath, color = Color(0xFF0F172A))
-
-        // D. Sleek Blue Scooter Mudguards
-        // Rear Mudguard
-        drawArc(
-            color = Color(0xFF2563EB),
-            startAngle = 180f,
-            sweepAngle = 110f,
-            useCenter = false,
-            topLeft = Offset(rearWheelX - wheelRadius - 4f, wheelY - wheelRadius - 4f),
-            size = androidx.compose.ui.geometry.Size(wheelRadius * 2 + 8f, wheelRadius * 2 + 8f),
-            style = Stroke(width = 5f, cap = StrokeCap.Round)
-        )
-        // Front Mudguard
-        drawArc(
-            color = Color(0xFF2563EB),
-            startAngle = 240f,
-            sweepAngle = 90f,
-            useCenter = false,
-            topLeft = Offset(frontWheelX - wheelRadius - 4f, wheelY - wheelRadius - 4f),
-            size = androidx.compose.ui.geometry.Size(wheelRadius * 2 + 8f, wheelRadius * 2 + 8f),
-            style = Stroke(width = 5f, cap = StrokeCap.Round)
-        )
-
-        // E. Muffler / Exhaust Pipe (Angled chrome cylinder)
+        // 5. Front Hydraulic Telescopic Suspension Fork
+        val forkTopX = frontWheelX - 16f
+        val forkTopY = wheelY - 32f + bikeYOffset
+        // Outer sheath tube (Dark Slate)
         drawLine(
-            color = Color(0xFF64748B),
-            start = Offset(bikeCenterX - 22f, wheelY - 4f),
-            end = Offset(rearWheelX - 22f, wheelY - 7f),
-            strokeWidth = 6f,
+            color = Color(0xFF475569),
+            start = Offset(frontWheelX, wheelY),
+            end = Offset(frontWheelX - 8f, wheelY - 16f + bikeYOffset),
+            strokeWidth = 4.5f,
             cap = StrokeCap.Round
         )
+        // Chrome inner sliding stanchion
         drawLine(
             color = Color(0xFFE2E8F0),
-            start = Offset(rearWheelX - 22f, wheelY - 7f),
-            end = Offset(rearWheelX - 35f, wheelY - 15f),
-            strokeWidth = 5f,
+            start = Offset(frontWheelX - 8f, wheelY - 16f + bikeYOffset),
+            end = Offset(forkTopX, forkTopY),
+            strokeWidth = 3f,
+            cap = StrokeCap.Square
+        )
+        // Orange safety reflector on lower front fork
+        drawRect(
+            color = Color(0xFFF97316),
+            topLeft = Offset(frontWheelX - 6f, wheelY - 12f + bikeYOffset),
+            size = androidx.compose.ui.geometry.Size(3f, 6f)
+        )
+
+        // 6. Rear Dual Sport Shock Absorber Coil-Spring
+        val shockStartX = rearWheelX + 6f
+        val shockStartY = wheelY
+        val shockEndX = bikeCenterX - 24f
+        val shockEndY = wheelY - 28f + bikeYOffset
+        // Chrome inner damper tube
+        drawLine(
+            color = Color(0xFFCBD5E1),
+            start = Offset(shockStartX, shockStartY),
+            end = Offset(shockEndX, shockEndY),
+            strokeWidth = 3f
+        )
+        // Red Coil spring spiral rings
+        val coils = 6
+        for (c in 0..coils) {
+            val ratio = c.toFloat() / coils
+            val pX = shockStartX + (shockEndX - shockStartX) * ratio
+            val pY = shockStartY + (shockEndY - shockStartY) * ratio
+            drawLine(
+                color = Color(0xFFEF4444), // Vibrant sports coil spring
+                start = Offset(pX - 4f, pY - 1f),
+                end = Offset(pX + 4f, pY + 1f),
+                strokeWidth = 2.5f,
+                cap = StrokeCap.Round
+            )
+        }
+        // Gold Nitrogen/Fluid Piggyback Reservoir
+        drawRoundRect(
+            color = Color(0xFFF59E0B),
+            topLeft = Offset(shockEndX - 5f, shockEndY + 4f),
+            size = androidx.compose.ui.geometry.Size(4f, 8f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(1f, 1f)
+        )
+
+        // 7. Engine Cylinder Block, Casing and Chrome Exhaust Heat-Shield
+        val engineX = rearWheelX + 16f
+        val engineY = wheelY - 12f + bikeYOffset
+        drawRoundRect(
+            color = Color(0xFF334155),
+            topLeft = Offset(engineX, engineY),
+            size = androidx.compose.ui.geometry.Size(26f, 16f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f)
+        )
+        for (f in 0..3) {
+            drawLine(
+                color = Color(0xFF1E293B),
+                start = Offset(engineX + 4f, engineY + 3f + (f * 3f)),
+                end = Offset(engineX + 22f, engineY + 3f + (f * 3f)),
+                strokeWidth = 1.5f
+            )
+        }
+        // Exhaust Pipe Pipeline & Chrome Heat-Shielded Muffler
+        val pipeMidX = rearWheelX - 4f
+        val pipeMidY = wheelY - 2f + bikeYOffset
+        val pipeEndX = rearWheelX - 25f
+        val pipeEndY = wheelY - 14f + bikeYOffset
+        // Dark exhaust barrel
+        drawLine(
+            color = Color(0xFF475569),
+            start = Offset(pipeMidX, pipeMidY),
+            end = Offset(pipeEndX, pipeEndY),
+            strokeWidth = 7.5f,
+            cap = StrokeCap.Round
+        )
+        // Metal Exhaust Tip
+        drawLine(
+            color = Color(0xFFCBD5E1),
+            start = Offset(pipeEndX, pipeEndY),
+            end = Offset(pipeEndX - 5f, pipeEndY - 2f),
+            strokeWidth = 6.5f,
+            cap = StrokeCap.Round
+        )
+        // Silver-Chrome heat guard plate
+        drawLine(
+            color = Color(0xFFF1F5F9),
+            start = Offset(pipeMidX - 6f, pipeMidY - 1.5f),
+            end = Offset(pipeEndX + 6f, pipeEndY + 1.5f),
+            strokeWidth = 3f,
             cap = StrokeCap.Round
         )
 
-        // F. The Delivery Box (Ekkyfish blue backbox)
+        // 8. Scooter Platform Floorboard and Tail Fairing Panel
+        val floorX = bikeCenterX - 18f
+        val floorY = wheelY - 10f + bikeYOffset
+        val floorWidth = 42f
+        drawRoundRect(
+            color = Color(0xFF0F172A),
+            topLeft = Offset(floorX, floorY),
+            size = androidx.compose.ui.geometry.Size(floorWidth, 5f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.5f, 1.5f)
+        )
+        // Deep blue chassis sweeping body panels
+        val bodyPath = Path().apply {
+            moveTo(bikeCenterX - 20f, floorY)
+            lineTo(bikeCenterX - 35f, wheelY - 24f + bikeYOffset)
+            lineTo(bikeCenterX - 15f, wheelY - 36f + bikeYOffset)
+            lineTo(bikeCenterX + 10f, wheelY - 24f + bikeYOffset)
+            close()
+        }
+        drawPath(path = bodyPath, color = Color(0xFF2563EB))
+        // Dynamic racing stripe highlight decal
+        val bodyDecal = Path().apply {
+            moveTo(bikeCenterX - 22f, floorY - 3f)
+            lineTo(bikeCenterX - 31f, wheelY - 23f + bikeYOffset)
+            lineTo(bikeCenterX - 26f, wheelY - 26f + bikeYOffset)
+            close()
+        }
+        drawPath(path = bodyDecal, color = Color(0x99FFFFFF))
+
+        // 9. Premium Ergonomic Caramel-Brown Leather Seat
+        val seatX = bikeCenterX - 32f
+        val seatY = wheelY - 38f + bikeYOffset
+        val seatPath = Path().apply {
+            moveTo(seatX, seatY)
+            quadraticTo(seatX + 15f, seatY - 4f, seatX + 32f, seatY - 1f)
+            lineTo(seatX + 28f, seatY + 5f)
+            lineTo(seatX + 2f, seatY + 4f)
+            close()
+        }
+        drawPath(path = seatPath, color = Color(0xFFB45309)) // Amber/Caramel Leather Accent
+        drawLine(
+            color = Color(0xFF1E293B),
+            start = Offset(seatX + 1f, seatY + 4f),
+            end = Offset(seatX + 29f, seatY + 5f),
+            strokeWidth = 2f
+        )
+
+        // 10. Heavy Duty Back Carrier Rack & Blue Delivery Box
+        // Silver metallic luggage rack stays
+        drawLine(
+            color = Color(0xFF64748B),
+            start = Offset(rearWheelX - 4f, wheelY - 24f + bikeYOffset),
+            end = Offset(rearWheelX + 16f, wheelY - 36f + bikeYOffset),
+            strokeWidth = 3f,
+            cap = StrokeCap.Round
+        )
         val boxWidth = 38f
         val boxHeight = 38f
         val boxX = rearWheelX - 12f
         val boxY = wheelY - 52f + bikeYOffset
-
         drawRoundRect(
-            color = Color(0xFF1E40AF), // Dark Royal Blue Box
+            color = Color(0xFF1E40AF),
             topLeft = Offset(boxX, boxY),
             size = androidx.compose.ui.geometry.Size(boxWidth, boxHeight),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
         )
         drawRect(
-            color = Color(0xFF38BDF8), // Light Sky Blue top rim
+            color = Color(0xFF38BDF8),
             topLeft = Offset(boxX, boxY),
             size = androidx.compose.ui.geometry.Size(boxWidth, 6f)
         )
-        // Tiny fish decal on delivery box
+        // White fish logo sticker on box
         val fishDecalPath = Path().apply {
             moveTo(boxX + 11f, boxY + 21f)
             quadraticTo(boxX + 19f, boxY + 13f, boxX + 27f, boxY + 21f)
@@ -517,13 +630,95 @@ fun RunningBikeAnimation(
             color = Color.White
         )
 
-        // G. The Delivery Rider (positioned with dynamic bobbing)
+        // 11. Steering stem, Rear-view safety mirrors, Handlebars
+        val handlebarX = bikeCenterX + 35f
+        val handlebarY = wheelY - 50f + bikeYOffset
+        drawLine(
+            color = Color(0xFF64748B),
+            start = Offset(forkTopX, forkTopY),
+            end = Offset(handlebarX, handlebarY),
+            strokeWidth = 4f
+        )
+        drawLine(
+            color = Color(0xFF1E293B),
+            start = Offset(handlebarX - 6f, handlebarY - 1f),
+            end = Offset(handlebarX + 2f, handlebarY + 1f),
+            strokeWidth = 3.5f,
+            cap = StrokeCap.Round
+        )
+        // Mirror Stem & Oval reflecting glass
+        drawLine(
+            color = Color(0xFF94A3B8),
+            start = Offset(handlebarX - 2f, handlebarY - 1f),
+            end = Offset(handlebarX - 9f, handlebarY - 12f),
+            strokeWidth = 1.5f
+        )
+        drawOval(
+            color = Color(0xFF1E293B),
+            topLeft = Offset(handlebarX - 14f, handlebarY - 15f),
+            size = androidx.compose.ui.geometry.Size(9f, 6f)
+        )
+        drawOval(
+            color = Color(0xE0E2E8F0),
+            topLeft = Offset(handlebarX - 13f, handlebarY - 14f),
+            size = androidx.compose.ui.geometry.Size(7f, 4f)
+        )
+
+        // 12. Front Nose fairing aerodynamic styling & sport windshield
+        val nosePath = Path().apply {
+            moveTo(handlebarX, handlebarY - 3f)
+            lineTo(handlebarX + 14f, handlebarY + 13f)
+            lineTo(handlebarX + 8f, handlebarY + 28f)
+            lineTo(handlebarX - 6f, handlebarY + 13f)
+            close()
+        }
+        drawPath(path = nosePath, color = Color(0xFF2563EB))
+        val windshieldPath = Path().apply {
+            moveTo(handlebarX, handlebarY - 3f)
+            lineTo(handlebarX - 4f, handlebarY - 12f)
+            lineTo(handlebarX + 6f, handlebarY - 8f)
+            close()
+        }
+        drawPath(path = windshieldPath, color = Color(0xCC1E293B))
+
+        // 13. High-intensity LED Headlight bulb and Volumetric Glow
+        val bulbCenterX = handlebarX + 11f
+        val bulbCenterY = handlebarY + 18f
+        drawCircle(
+            color = Color(0xFFFFEB3B),
+            radius = 4f,
+            center = Offset(bulbCenterX, bulbCenterY)
+        )
+        drawCircle(
+            color = Color(0xFFCBD5E1),
+            radius = 4.5f,
+            center = Offset(bulbCenterX, bulbCenterY),
+            style = Stroke(width = 1f)
+        )
+        val beamPath = Path().apply {
+            moveTo(bulbCenterX, bulbCenterY)
+            lineTo(w, wheelY - 30f)
+            lineTo(w, roadY + 50f)
+            lineTo(bulbCenterX, bulbCenterY)
+            close()
+        }
+        drawPath(
+            path = beamPath,
+            brush = Brush.horizontalGradient(
+                colors = listOf(Color(0x60FEF08A), Color(0x35FEF08A), Color.Transparent)
+            )
+        )
+        // Volumetric dust specks gleaming in headlight beam
+        drawCircle(color = Color(0xCCFFFFFF), radius = 1f, center = Offset(bulbCenterX + 45f, bulbCenterY + 4f))
+        drawCircle(color = Color(0x88FFFFFF), radius = 1.2f, center = Offset(bulbCenterX + 85f, bulbCenterY + 11f))
+        drawCircle(color = Color(0x55FFFFFF), radius = 0.8f, center = Offset(bulbCenterX + 125f, bulbCenterY + 15f))
+
+        // 14. Professional Delivery Rider & Gear
         val riderSeatX = bikeCenterX - 6f
         val riderSeatY = wheelY - 28f + bikeYOffset
         val shoulderX = bikeCenterX + 16f
         val shoulderY = wheelY - 54f + bikeYOffset
-
-        // Leaning Royal Blue Jacket Torso
+        // Wind-breaker blue active jacket torso
         val riderTorsoPath = Path().apply {
             moveTo(riderSeatX, riderSeatY)
             lineTo(riderSeatX - 6f, riderSeatY - 16f)
@@ -532,13 +727,11 @@ fun RunningBikeAnimation(
             close()
         }
         drawPath(path = riderTorsoPath, color = Color(0xFF2563EB))
-
-        // Leaning Rider Pants / Legs in dark navy slate
+        // Leaning Rider comfortable Slate Pants
         val kneeX = bikeCenterX + 19f
         val kneeY = wheelY - 24f + bikeYOffset
         val footX = bikeCenterX + 11f
         val footY = wheelY - 9f + bikeYOffset
-
         drawLine(
             color = Color(0xFF1E293B),
             start = Offset(riderSeatX, riderSeatY - 2f),
@@ -553,6 +746,7 @@ fun RunningBikeAnimation(
             strokeWidth = 6f,
             cap = StrokeCap.Round
         )
+        // Riding boots
         drawLine(
             color = Color(0xFF0F172A),
             start = Offset(footX, footY),
@@ -560,29 +754,24 @@ fun RunningBikeAnimation(
             strokeWidth = 5f,
             cap = StrokeCap.Round
         )
-
-        // Arms reaching to handle grip
-        val handlebarX = bikeCenterX + 35f
-        val handlebarY = wheelY - 50f + bikeYOffset
-
+        // Sleek blue sleeve arm reaching out to grips
         drawLine(
-            color = Color(0xFF2563EB), // Sleek blue arm sleeve
+            color = Color(0xFF2563EB),
             start = Offset(shoulderX, shoulderY + 4f),
             end = Offset(handlebarX, handlebarY),
             strokeWidth = 5.2f,
             cap = StrokeCap.Round
         )
-
-        // H. Delivery Rider Helmet & Visor
+        // Rider Helmet with Neon Accent Stripes
         val headX = shoulderX - 4f
         val headY = shoulderY - 15f
         val helmetRadius = 12f
         drawCircle(
-            color = Color(0xFF0EA5E9), // Bright Blue Helmet matches logo
+            color = Color(0xFF0EA5E9),
             radius = helmetRadius,
             center = Offset(headX, headY)
         )
-        // Dark Visor facing right
+        // Visor glass shield
         val visorPath = Path().apply {
             moveTo(headX + 2f, headY - helmetRadius + 2f)
             quadraticTo(headX + helmetRadius + 1.5f, headY - 2f, headX + 4f, headY + helmetRadius - 2f)
@@ -591,49 +780,11 @@ fun RunningBikeAnimation(
             close()
         }
         drawPath(path = visorPath, color = Color(0xFF0F172A))
-
-        // Helmet highlight shine
+        // Glare shell highlight on visor
         drawCircle(
             color = Color.White.copy(alpha = 0.5f),
             radius = 3.5f,
             center = Offset(headX - 5f, headY - 5f)
-        )
-
-        // I. Motorcycle Front Fairing Assembly & Yellow Headlight Beam
-        drawLine(
-            color = Color(0xFF475569),
-            start = Offset(frontWheelX - 4f, wheelY - 8f),
-            end = Offset(handlebarX, handlebarY),
-            strokeWidth = 4f
-        )
-        val fairingPath = Path().apply {
-            moveTo(handlebarX - 4f, handlebarY - 4f)
-            lineTo(handlebarX + 8f, handlebarY + 6f)
-            lineTo(handlebarX + 2f, handlebarY + 23f)
-            lineTo(handlebarX - 10f, handlebarY + 13f)
-            close()
-        }
-        drawPath(path = fairingPath, color = Color(0xFF2563EB))
-
-        // Bulbing Light
-        drawCircle(
-            color = Color(0xFFFEF08A),
-            radius = 4.5f,
-            center = Offset(handlebarX + 8f, handlebarY + 15f)
-        )
-        // Light Beam Projection
-        val beamPath = Path().apply {
-            moveTo(handlebarX + 8f, handlebarY + 15f)
-            lineTo(w, wheelY - 15f)
-            lineTo(w, roadY)
-            lineTo(handlebarX + 8f, handlebarY + 15f)
-            close()
-        }
-        drawPath(
-            path = beamPath,
-            brush = Brush.horizontalGradient(
-                colors = listOf(Color(0x55FEF08A), Color.Transparent)
-            )
         )
     }
 }
